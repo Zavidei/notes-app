@@ -6,6 +6,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -39,7 +40,7 @@ export class NotesController {
       throw new BadRequestException('Eroare la căutare');
     }
   }
-  
+
   // Notițele publice ale tuturor utilizatorilor
   @Get('public')
   async listPublic() {
@@ -52,10 +53,10 @@ export class NotesController {
   }
 
   @Get(':id')
-  async get(@Param('id') id: string) {
+  async get(@Req() req, @Param('id', ParseIntPipe) id: number) {
     const result = await this.db.query(
-      'SELECT id, title, content, is_public, created_at FROM notes WHERE id = $1',
-      [id],
+      'SELECT id, title, content, is_public, created_at FROM notes WHERE id = $1 AND user_id = $2',
+      [id, req.user.sub],
     );
     if (result.rows.length === 0) {
       throw new NotFoundException('Notița nu există');
@@ -77,8 +78,14 @@ export class NotesController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    await this.db.query('DELETE FROM notes WHERE id = $1', [id]);
+  async remove(@Req() req, @Param('id', ParseIntPipe) id: number) {
+    const result = await this.db.query(
+      'DELETE FROM notes WHERE id = $1 AND user_id = $2',
+      [id, req.user.sub],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException('Notița nu există');
+    }
     return { deleted: true };
   }
 }
