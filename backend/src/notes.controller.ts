@@ -17,23 +17,29 @@ import { DbService } from './db.service';
 @Controller('notes')
 @UseGuards(AuthGuard)
 export class NotesController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService) { }
 
   // Notițele mele, cu căutare după titlu
   @Get()
   async list(@Req() req, @Query('search') search = '') {
+    if (search.length > 80) {
+      throw new BadRequestException('Textul căutat este prea lung (maxim 80 de caractere)');
+    }
     try {
       const result = await this.db.query(
-        `SELECT id, title, content, is_public, created_at FROM notes
-         WHERE user_id = ${req.user.sub} AND title ILIKE '%${search}%'
+        `SELECT id, title, content, is_public, created_at
+         FROM notes
+         WHERE user_id = $1 AND title ILIKE $2
          ORDER BY id DESC`,
+        [req.user.sub, `%${search}%`],
       );
       return result.rows;
     } catch (err) {
-      throw new BadRequestException(err.message);
+      console.error(err);
+      throw new BadRequestException('Eroare la căutare');
     }
   }
-
+  
   // Notițele publice ale tuturor utilizatorilor
   @Get('public')
   async listPublic() {
